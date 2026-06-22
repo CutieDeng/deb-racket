@@ -151,6 +151,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: 'v9.2.1'
           RELEASE_NAME: 'Racket 9.2.1 DEB packages'
           CREATE_RELEASE: 'true'
@@ -160,6 +161,8 @@ jobs:
         run: |
           set -euo pipefail
           command -v gh >/dev/null 2>&1 || { echo 'gh CLI is required on the publish runner'; exit 1; }
+          gh --version | sed -n '1,2p'
+          gh auth status -h github.com || true
           mapfile -t deb_files < <(find "$GITHUB_WORKSPACE/release-assets" -maxdepth 2 -name '*.deb' -type f | sort)
           printf 'Downloaded DEB files (%s):\n' "${#deb_files[@]}"
           printf '  %s\n' "${deb_files[@]}"
@@ -176,11 +179,17 @@ jobs:
             fi
             seen["$asset_name"]=1
           done
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          printf 'Release assets before upload for %s:\n' "$RELEASE_TAG"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$RELEASE_TAG" --jq '.assets[].name' || true
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             if [ "$CREATE_RELEASE" != true ]; then
               echo "GitHub release does not exist and create-release is false: $RELEASE_TAG"
               exit 1
             fi
-            gh release create "$RELEASE_TAG" --title "$RELEASE_NAME" --notes "Generated DEB artifacts for $PACKAGE_NAME $PACKAGE_VERSION."
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_NAME" --notes "Generated DEB artifacts for $PACKAGE_NAME $PACKAGE_VERSION."
           fi
-          gh release upload "$RELEASE_TAG" "${deb_files[@]}" --clobber
+          printf 'Uploading DEB files to release %s:\n' "$RELEASE_TAG"
+          printf '  %s\n' "${deb_files[@]}"
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${deb_files[@]}" --clobber
+          printf 'Release assets after upload for %s:\n' "$RELEASE_TAG"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/$RELEASE_TAG" --jq '.assets[].name'
