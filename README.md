@@ -66,13 +66,13 @@ scripts/build-deb.sh \
 
 Supported Debian-family systems are `debian12` and `ubuntu2404`. The package
 revision is generated as `deb-release.deb-system`, so `1`
-and `ubuntu2404` produce version `9.2.1.1-1.ubuntu2404`.
+and `ubuntu2404` produce version `9.2.1-1.ubuntu2404`.
 
 Validate an existing `.deb`:
 
 ```sh
 scripts/verify-deb.sh \
-  --deb /path/to/artifacts/racket9_9.2.1.1-1.ubuntu2404_amd64.deb \
+  --deb /path/to/artifacts/racket9_9.2.1-1.ubuntu2404_amd64.deb \
   --deb-system ubuntu2404 \
   --deb-release 1 \
   --deb-arch amd64

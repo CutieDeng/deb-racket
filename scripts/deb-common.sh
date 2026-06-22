@@ -5,7 +5,7 @@ set -euo pipefail
 # Generated entrypoint: deb-common.sh
 
 PACKAGE_NAME='racket9'
-PACKAGE_VERSION='9.2.1.1'
+PACKAGE_VERSION='9.2.1'
 PACKAGE_SOURCE_VERSION='9.2.1'
 DEFAULT_DEB_SYSTEM='ubuntu2404'
 DEFAULT_DEB_RELEASE='1'

@@ -156,7 +156,7 @@ jobs:
           RELEASE_NAME: 'Racket 9.2.1 DEB packages'
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
-          PACKAGE_VERSION: '9.2.1.1'
+          PACKAGE_VERSION: '9.2.1'
           EXPECTED_DEB_COUNT: 4
         run: |
           set -euo pipefail
