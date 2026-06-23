@@ -113,19 +113,21 @@ if [ "${#source_dirs[@]}" -ne 1 ]; then
 fi
 SOURCE_DIR="${source_dirs[0]}"
 
-sed -i 's/))$/) (default-scope . "installation"))/' "$SOURCE_DIR/etc/config.rktd"
+sed -i 's|))$|) (default-scope . "installation") (compiled-file-cache-roots . (user system)) (compiled-file-system-cache-root . "/var/cache/racket/compiled"))|' "$SOURCE_DIR/etc/config.rktd"
 sed -i 's/"1[.]1"/"3"/g' "$SOURCE_DIR/collects/openssl/libssl.rkt" "$SOURCE_DIR/collects/openssl/libcrypto.rkt"
 cd "$SOURCE_DIR/src"
 ./configure \
   --disable-debug \
   --disable-dependency-tracking \
   --enable-origtree=no \
+  --enable-sharezo \
   --prefix="$PREFIX" \
   --sysconfdir=/etc \
   --enable-useprefix
 make -j"$JOBS"
 make install DESTDIR="$STAGE_ROOT"
 cd "$REPO_ROOT"
+find "$STAGE_ROOT" -type d -name compiled -prune -exec rm -rf {} +
 
 if ! find "$STAGE_ROOT" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
   die "staged package root is empty: $STAGE_ROOT"
@@ -143,9 +145,21 @@ Depends: libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g
 Description: $PACKAGE_SUMMARY
  Racket packaged from a stable source release archive.
 CONTROL
+cat > "$DEBIAN_DIR/prerm" <<'PRERM'
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
+  if command -v raco >/dev/null 2>&1; then
+    raco setup --system --delete-cache || true
+  fi
+fi
+exit 0
+PRERM
+chmod 755 "$DEBIAN_DIR/prerm"
 
 (cd "$STAGE_ROOT" && find . -type f ! -path './DEBIAN/*' -print0 | sort -z | xargs -0 md5sum > DEBIAN/md5sums)
 require_nonempty_file "$DEBIAN_DIR/control"
+require_nonempty_file "$DEBIAN_DIR/prerm"
 require_nonempty_file "$DEBIAN_DIR/md5sums"
 mkdir -p "$ARTIFACT_DIR"
 dpkg-deb --root-owner-group --build "$STAGE_ROOT" "$ARTIFACT_DIR/$DEB_NAME"
