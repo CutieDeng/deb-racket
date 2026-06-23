@@ -127,7 +127,7 @@ cd "$SOURCE_DIR/src"
 make -j"$JOBS"
 make install DESTDIR="$STAGE_ROOT"
 cd "$REPO_ROOT"
-find "$STAGE_ROOT" -type d -name compiled -prune -exec rm -rf {} +
+find "$STAGE_ROOT" -type d -name compiled ! -path '*/info-domain/compiled' -prune -exec rm -rf {} +
 
 if ! find "$STAGE_ROOT" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
   die "staged package root is empty: $STAGE_ROOT"
