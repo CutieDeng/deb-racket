@@ -145,6 +145,16 @@ Depends: libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g
 Description: $PACKAGE_SUMMARY
  Racket packaged from a stable source release archive.
 CONTROL
+cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
+#!/bin/sh
+set -e
+if [ "$1" = "configure" ]; then
+  raco setup --system --no-user --reset-cache -D --no-pkg-deps
+fi
+exit 0
+POSTINST
+chmod 755 "$DEBIAN_DIR/postinst"
+
 cat > "$DEBIAN_DIR/prerm" <<'PRERM'
 #!/bin/sh
 set -e
@@ -156,10 +166,21 @@ fi
 exit 0
 PRERM
 chmod 755 "$DEBIAN_DIR/prerm"
+cat > "$DEBIAN_DIR/postrm" <<'POSTRM'
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+  rm -rf /var/cache/racket/compiled
+fi
+exit 0
+POSTRM
+chmod 755 "$DEBIAN_DIR/postrm"
 
 (cd "$STAGE_ROOT" && find . -type f ! -path './DEBIAN/*' -print0 | sort -z | xargs -0 md5sum > DEBIAN/md5sums)
 require_nonempty_file "$DEBIAN_DIR/control"
+require_nonempty_file "$DEBIAN_DIR/postinst"
 require_nonempty_file "$DEBIAN_DIR/prerm"
+require_nonempty_file "$DEBIAN_DIR/postrm"
 require_nonempty_file "$DEBIAN_DIR/md5sums"
 mkdir -p "$ARTIFACT_DIR"
 dpkg-deb --root-owner-group --build "$STAGE_ROOT" "$ARTIFACT_DIR/$DEB_NAME"

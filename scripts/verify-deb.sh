@@ -53,6 +53,7 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 require_exe dpkg-deb
+require_exe tar
 require_nonempty_file "$DEB_PATH"
 [ "$(basename "$DEB_PATH")" = "$EXPECTED_DEB" ] || die "DEB basename does not match expected $EXPECTED_DEB: $DEB_PATH"
 
@@ -63,4 +64,18 @@ arch=$(dpkg-deb --field "$DEB_PATH" Architecture)
 [ "$version" = "$DEB_VERSION" ] || die "DEB Version field mismatch: expected $DEB_VERSION got $version"
 [ "$arch" = "$NORMALIZED_ARCH" ] || die "DEB Architecture field mismatch: expected $NORMALIZED_ARCH got $arch"
 dpkg-deb --contents "$DEB_PATH" >/dev/null
+control_files=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -tf -)
+for script in ./postinst ./prerm ./postrm; do
+  printf '%s\n' "$control_files" | grep -Fx "$script" >/dev/null \
+    || die "DEB control archive missing $script"
+done
+postinst_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postinst)
+printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null \
+  || die "DEB postinst does not build the system compiled cache"
+prerm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./prerm)
+printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null \
+  || die "DEB prerm does not delete the system compiled cache"
+postrm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postrm)
+printf '%s\n' "$postrm_content" | grep -F 'rm -rf /var/cache/racket/compiled' >/dev/null \
+  || die "DEB postrm does not purge the system compiled cache directory"
 printf 'Validated DEB: %s\n' "$DEB_PATH"
