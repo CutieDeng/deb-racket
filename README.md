@@ -46,7 +46,7 @@ scripts/build-deb.sh \
   --artifact-dir /path/to/artifacts \
   --work-dir /path/to/work \
   --deb-system ubuntu2404 \
-  --deb-release 6 \
+  --deb-release 1 \
   --deb-arch amd64 \
   --prefix /usr
 ```
@@ -55,25 +55,25 @@ Use a local source archive for offline or pinned local builds:
 
 ```sh
 scripts/build-deb.sh \
-  --source-archive /path/to/racket-minimal-9.2.1-src.tgz \
+  --source-archive /path/to/racket-minimal-9.2.2-src.tgz \
   --artifact-dir /path/to/artifacts \
   --work-dir /path/to/work \
   --deb-system ubuntu2404 \
-  --deb-release 6 \
+  --deb-release 1 \
   --deb-arch amd64 \
   --prefix /usr
 ```
 
 Supported Debian-family systems are `debian12` and `ubuntu2404`. The package
-revision is generated as `deb-release.deb-system`, so `6`
-and `ubuntu2404` produce version `9.2.1-6.ubuntu2404`.
+revision is generated as `deb-release.deb-system`, so `1`
+and `ubuntu2404` produce version `9.2.2-1.ubuntu2404`.
 
 Validate an existing `.deb`:
 
 ```sh
 scripts/verify-deb.sh \
-  --deb /path/to/artifacts/racket9_9.2.1-6.ubuntu2404_amd64.deb \
+  --deb /path/to/artifacts/racket9_9.2.2-1.ubuntu2404_amd64.deb \
   --deb-system ubuntu2404 \
-  --deb-release 6 \
+  --deb-release 1 \
   --deb-arch amd64
 ```
