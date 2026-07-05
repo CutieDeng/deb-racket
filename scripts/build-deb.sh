@@ -20,6 +20,7 @@ Options:
   --work-dir PATH        Build work directory.
   --deb-system SYSTEM    debian12 or ubuntu2404.
   --deb-release RELEASE  Package revision base, for example 1. The system suffix is appended separately.
+  --cache-mode MODE      postinstall or cached. Defaults to postinstall.
   --prefix PATH          Install prefix inside the package. Defaults to generated /usr.
   --deb-arch ARCH        amd64, x86_64, x64, arm64, or aarch64.
   --jobs N               Parallel jobs passed to make.
@@ -38,6 +39,7 @@ DEB_RELEASE=
 DEB_ARCH=
 JOBS=1
 PREFIX="$DEFAULT_PREFIX"
+CACHE_MODE="$DEFAULT_CACHE_MODE"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
     --work-dir) [ $# -ge 2 ] || usage_error "missing value for --work-dir"; WORK_DIR="$2"; shift 2 ;;
     --deb-system) [ $# -ge 2 ] || usage_error "missing value for --deb-system"; DEB_SYSTEM="$2"; shift 2 ;;
     --deb-release) [ $# -ge 2 ] || usage_error "missing value for --deb-release"; DEB_RELEASE="$2"; shift 2 ;;
+    --cache-mode) [ $# -ge 2 ] || usage_error "missing value for --cache-mode"; CACHE_MODE="$2"; shift 2 ;;
     --prefix) [ $# -ge 2 ] || usage_error "missing value for --prefix"; PREFIX="$2"; shift 2 ;;
     --deb-arch) [ $# -ge 2 ] || usage_error "missing value for --deb-arch"; DEB_ARCH="$2"; shift 2 ;;
     --jobs) [ $# -ge 2 ] || usage_error "missing value for --jobs"; JOBS="$2"; shift 2 ;;
@@ -65,7 +68,10 @@ require_repo_root "$REPO_ROOT"
 [ -n "$DEB_ARCH" ] || usage_error "--deb-arch is required"
 validate_deb_system "$DEB_SYSTEM"
 validate_deb_release "$DEB_RELEASE"
+validate_cache_mode "$CACHE_MODE"
 NORMALIZED_ARCH=$(normalize_arch "$DEB_ARCH")
+PACKAGE_NAME=$(package_name_for_cache_mode "$CACHE_MODE")
+CONFLICTING_PACKAGE_NAME=$(conflicting_package_name_for_cache_mode "$CACHE_MODE")
 if [ -n "$SOURCE_ARCHIVE" ] && [ "$SOURCE_URL_EXPLICIT" = 1 ]; then
   usage_error "use either --source-archive or --source-url, not both"
 fi
@@ -79,13 +85,15 @@ SOURCE_PATH="$SOURCE_WORK/$SOURCE_ARCHIVE_NAME"
 EXTRACT_ROOT="$WORK_DIR/source-tree"
 STAGE_ROOT="$WORK_DIR/deb-root"
 DEBIAN_DIR="$STAGE_ROOT/DEBIAN"
-DEB_NAME=$(deb_name_for_arch "$NORMALIZED_ARCH" "$DEB_RELEASE" "$DEB_SYSTEM")
+DEB_NAME=$(deb_name_for_arch "$NORMALIZED_ARCH" "$DEB_RELEASE" "$DEB_SYSTEM" "$CACHE_MODE")
 DEB_VERSION=$(deb_package_version "$DEB_RELEASE" "$DEB_SYSTEM")
 
 printf 'Repository root: %s\n' "$REPO_ROOT"
 printf 'DEB system: %s\n' "$DEB_SYSTEM"
 printf 'DEB release: %s\n' "$DEB_RELEASE"
 printf 'DEB version: %s\n' "$DEB_VERSION"
+printf 'DEB cache mode: %s\n' "$CACHE_MODE"
+printf 'DEB package name: %s\n' "$PACKAGE_NAME"
 printf 'Source archive: %s\n' "${SOURCE_ARCHIVE:-$SOURCE_URL}"
 printf 'DEB output: %s\n' "$ARTIFACT_DIR/$DEB_NAME"
 
@@ -100,6 +108,7 @@ if [ "$DRY_RUN" = 1 ]; then
   printf 'Would extract source archive into: %s\n' "$EXTRACT_ROOT"
   printf 'Would build install root: %s\n' "$STAGE_ROOT"
   printf 'Would write Debian control metadata: %s\n' "$DEBIAN_DIR/control"
+  printf 'Would configure cache mode: %s\n' "$CACHE_MODE"
   printf 'Would build DEB artifact: %s\n' "$ARTIFACT_DIR/$DEB_NAME"
   exit 0
 fi
@@ -128,6 +137,9 @@ make -j"$JOBS"
 make install DESTDIR="$STAGE_ROOT"
 cd "$REPO_ROOT"
 find "$STAGE_ROOT" -type d -name compiled ! -path '*/info-domain/compiled' -prune -exec rm -rf {} +
+if [ "$CACHE_MODE" = cached ]; then
+  build_staged_system_cache "$STAGE_ROOT" "$PREFIX"
+fi
 
 if ! find "$STAGE_ROOT" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
   die "staged package root is empty: $STAGE_ROOT"
@@ -141,10 +153,20 @@ Priority: optional
 Architecture: $NORMALIZED_ARCH
 Maintainer: $PACKAGE_MAINTAINER
 Homepage: $PACKAGE_HOMEPAGE
+Conflicts: $CONFLICTING_PACKAGE_NAME
+Replaces: $CONFLICTING_PACKAGE_NAME
+CONTROL
+if [ "$CACHE_MODE" = cached ]; then
+  cat >> "$DEBIAN_DIR/control" <<CONTROL
+Provides: $BASE_PACKAGE_NAME
+CONTROL
+fi
+cat >> "$DEBIAN_DIR/control" <<CONTROL
 Depends: libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g
 Description: $PACKAGE_SUMMARY
  Racket packaged from a stable source release archive.
 CONTROL
+if [ "$CACHE_MODE" = postinstall ]; then
 cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
 #!/bin/sh
 set -e
@@ -153,8 +175,16 @@ if [ "$1" = "configure" ]; then
 fi
 exit 0
 POSTINST
+else
+cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
+#!/bin/sh
+set -e
+exit 0
+POSTINST
+fi
 chmod 755 "$DEBIAN_DIR/postinst"
 
+if [ "$CACHE_MODE" = postinstall ]; then
 cat > "$DEBIAN_DIR/prerm" <<'PRERM'
 #!/bin/sh
 set -e
@@ -165,6 +195,13 @@ if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
 fi
 exit 0
 PRERM
+else
+cat > "$DEBIAN_DIR/prerm" <<'PRERM'
+#!/bin/sh
+set -e
+exit 0
+PRERM
+fi
 chmod 755 "$DEBIAN_DIR/prerm"
 cat > "$DEBIAN_DIR/postrm" <<'POSTRM'
 #!/bin/sh
@@ -184,5 +221,5 @@ require_nonempty_file "$DEBIAN_DIR/postrm"
 require_nonempty_file "$DEBIAN_DIR/md5sums"
 mkdir -p "$ARTIFACT_DIR"
 dpkg-deb --root-owner-group --build "$STAGE_ROOT" "$ARTIFACT_DIR/$DEB_NAME"
-"$REPO_ROOT/scripts/verify-deb.sh" --deb "$ARTIFACT_DIR/$DEB_NAME" --deb-system "$DEB_SYSTEM" --deb-release "$DEB_RELEASE" --deb-arch "$NORMALIZED_ARCH"
+"$REPO_ROOT/scripts/verify-deb.sh" --deb "$ARTIFACT_DIR/$DEB_NAME" --deb-system "$DEB_SYSTEM" --deb-release "$DEB_RELEASE" --deb-arch "$NORMALIZED_ARCH" --cache-mode "$CACHE_MODE"
 printf 'DEB package: %s\n' "$ARTIFACT_DIR/$DEB_NAME"

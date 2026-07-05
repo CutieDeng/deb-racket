@@ -15,46 +15,98 @@ permissions:
 
 jobs:
   build-deb:
-    name: build ${{ matrix.deb_system }} ${{ matrix.deb_arch }}
+    name: build ${{ matrix.deb_system }} ${{ matrix.deb_arch }} ${{ matrix.cache_mode }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - id: 'debian12-amd64'
+          - id: 'debian12-amd64-postinstall'
             deb_system: 'debian12'
-            deb_release: '1'
+            deb_release: '2'
             deb_arch: 'amd64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
             runner: 'ubuntu-24.04'
             container: 'debian:12'
             jobs: 2
-            artifact_name: 'deb-debian12-amd64'
+            artifact_name: 'deb-debian12-amd64-postinstall'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
-          - id: 'ubuntu2404-amd64'
-            deb_system: 'ubuntu2404'
-            deb_release: '1'
+          - id: 'debian12-amd64-cached'
+            deb_system: 'debian12'
+            deb_release: '2'
             deb_arch: 'amd64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04'
+            container: 'debian:12'
+            jobs: 2
+            artifact_name: 'deb-debian12-amd64-cached'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2404-amd64-postinstall'
+            deb_system: 'ubuntu2404'
+            deb_release: '2'
+            deb_arch: 'amd64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
             runner: 'ubuntu-24.04'
             container: 'ubuntu:24.04'
             jobs: 2
-            artifact_name: 'deb-ubuntu2404-amd64'
+            artifact_name: 'deb-ubuntu2404-amd64-postinstall'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
-          - id: 'debian12-arm64'
+          - id: 'ubuntu2404-amd64-cached'
+            deb_system: 'ubuntu2404'
+            deb_release: '2'
+            deb_arch: 'amd64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04'
+            container: 'ubuntu:24.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2404-amd64-cached'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'debian12-arm64-postinstall'
             deb_system: 'debian12'
-            deb_release: '1'
+            deb_release: '2'
             deb_arch: 'arm64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
             runner: 'ubuntu-24.04-arm'
             container: 'debian:12'
             jobs: 2
-            artifact_name: 'deb-debian12-arm64'
+            artifact_name: 'deb-debian12-arm64-postinstall'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
-          - id: 'ubuntu2404-arm64'
-            deb_system: 'ubuntu2404'
-            deb_release: '1'
+          - id: 'debian12-arm64-cached'
+            deb_system: 'debian12'
+            deb_release: '2'
             deb_arch: 'arm64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04-arm'
+            container: 'debian:12'
+            jobs: 2
+            artifact_name: 'deb-debian12-arm64-cached'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2404-arm64-postinstall'
+            deb_system: 'ubuntu2404'
+            deb_release: '2'
+            deb_arch: 'arm64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
             runner: 'ubuntu-24.04-arm'
             container: 'ubuntu:24.04'
             jobs: 2
-            artifact_name: 'deb-ubuntu2404-arm64'
+            artifact_name: 'deb-ubuntu2404-arm64-postinstall'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2404-arm64-cached'
+            deb_system: 'ubuntu2404'
+            deb_release: '2'
+            deb_arch: 'arm64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04-arm'
+            container: 'ubuntu:24.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2404-arm64-cached'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
     runs-on: ${{ matrix.runner }}
     container:
@@ -97,6 +149,7 @@ jobs:
             --deb-system "${{ matrix.deb_system }}" \
             --deb-release "${{ matrix.deb_release }}" \
             --deb-arch "${{ matrix.deb_arch }}" \
+            --cache-mode "${{ matrix.cache_mode }}" \
             --prefix '/usr' \
             --jobs "${{ matrix.jobs }}"
 
@@ -104,7 +157,7 @@ jobs:
         shell: bash
         env:
           DEBIAN_FRONTEND: noninteractive
-          PACKAGE_NAME: 'racket9'
+          PACKAGE_NAME: ${{ matrix.package_name }}
           PACKAGE_VERSION: '9.2.2'
         run: |
           set -euo pipefail
@@ -163,7 +216,7 @@ jobs:
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
           PACKAGE_VERSION: '9.2.2'
-          EXPECTED_DEB_COUNT: 4
+          EXPECTED_DEB_COUNT: 8
         run: |
           set -euo pipefail
           command -v gh >/dev/null 2>&1 || { echo 'gh CLI is required on the publish runner'; exit 1; }

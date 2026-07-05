@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/deb-common.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/verify-deb.sh --deb PATH --deb-system SYSTEM --deb-release RELEASE --deb-arch ARCH [--dry-run]
+Usage: scripts/verify-deb.sh --deb PATH --deb-system SYSTEM --deb-release RELEASE --deb-arch ARCH [--cache-mode MODE] [--dry-run]
 
 Validate .deb filename and metadata.
 USAGE
@@ -20,6 +20,7 @@ DEB_PATH=
 DEB_SYSTEM=
 DEB_RELEASE=
 DEB_ARCH=
+CACHE_MODE="$DEFAULT_CACHE_MODE"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,7 @@ while [ $# -gt 0 ]; do
     --deb-system) [ $# -ge 2 ] || usage_error "missing value for --deb-system"; DEB_SYSTEM="$2"; shift 2 ;;
     --deb-release) [ $# -ge 2 ] || usage_error "missing value for --deb-release"; DEB_RELEASE="$2"; shift 2 ;;
     --deb-arch) [ $# -ge 2 ] || usage_error "missing value for --deb-arch"; DEB_ARCH="$2"; shift 2 ;;
+    --cache-mode) [ $# -ge 2 ] || usage_error "missing value for --cache-mode"; CACHE_MODE="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --help) usage; exit 0 ;;
     *) usage_error "unknown option: $1" ;;
@@ -41,14 +43,18 @@ require_repo_root "$REPO_ROOT"
 [ -n "$DEB_ARCH" ] || usage_error "--deb-arch is required"
 validate_deb_system "$DEB_SYSTEM"
 validate_deb_release "$DEB_RELEASE"
+validate_cache_mode "$CACHE_MODE"
 NORMALIZED_ARCH=$(normalize_arch "$DEB_ARCH")
+PACKAGE_NAME=$(package_name_for_cache_mode "$CACHE_MODE")
 DEB_VERSION=$(deb_package_version "$DEB_RELEASE" "$DEB_SYSTEM")
-EXPECTED_DEB=$(deb_name_for_arch "$NORMALIZED_ARCH" "$DEB_RELEASE" "$DEB_SYSTEM")
+EXPECTED_DEB=$(deb_name_for_arch "$NORMALIZED_ARCH" "$DEB_RELEASE" "$DEB_SYSTEM" "$CACHE_MODE")
 
 if [ "$DRY_RUN" = 1 ]; then
   printf 'Would verify DEB: %s\n' "$DEB_PATH"
   printf 'Would expect DEB basename: %s\n' "$EXPECTED_DEB"
   printf 'Would expect DEB version: %s\n' "$DEB_VERSION"
+  printf 'Would expect DEB cache mode: %s\n' "$CACHE_MODE"
+  printf 'Would expect DEB package name: %s\n' "$PACKAGE_NAME"
   exit 0
 fi
 
@@ -63,18 +69,35 @@ arch=$(dpkg-deb --field "$DEB_PATH" Architecture)
 [ "$package" = "$PACKAGE_NAME" ] || die "DEB Package field mismatch: expected $PACKAGE_NAME got $package"
 [ "$version" = "$DEB_VERSION" ] || die "DEB Version field mismatch: expected $DEB_VERSION got $version"
 [ "$arch" = "$NORMALIZED_ARCH" ] || die "DEB Architecture field mismatch: expected $NORMALIZED_ARCH got $arch"
-dpkg-deb --contents "$DEB_PATH" >/dev/null
+contents=$(dpkg-deb --contents "$DEB_PATH")
 control_files=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -tf -)
 for script in ./postinst ./prerm ./postrm; do
   printf '%s\n' "$control_files" | grep -Fx "$script" >/dev/null \
     || die "DEB control archive missing $script"
 done
 postinst_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postinst)
-printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null \
-  || die "DEB postinst does not build the system compiled cache"
+if [ "$CACHE_MODE" = postinstall ]; then
+  printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null \
+    || die "DEB postinst does not build the system compiled cache"
+  if printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null; then
+    die "postinstall DEB payload unexpectedly includes system compiled cache .zo files"
+  fi
+else
+  if printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null; then
+    die "cached DEB postinst unexpectedly builds the system compiled cache"
+  fi
+  printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include system compiled cache .zo files"
+fi
 prerm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./prerm)
-printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null \
-  || die "DEB prerm does not delete the system compiled cache"
+if [ "$CACHE_MODE" = postinstall ]; then
+  printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null \
+    || die "DEB prerm does not delete the system compiled cache"
+else
+  if printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null; then
+    die "cached DEB prerm unexpectedly deletes the system compiled cache through raco"
+  fi
+fi
 postrm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postrm)
 printf '%s\n' "$postrm_content" | grep -F 'rm -rf /var/cache/racket/compiled' >/dev/null \
   || die "DEB postrm does not purge the system compiled cache directory"
