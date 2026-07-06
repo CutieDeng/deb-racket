@@ -71,6 +71,9 @@ arch=$(dpkg-deb --field "$DEB_PATH" Architecture)
 [ "$arch" = "$NORMALIZED_ARCH" ] || die "DEB Architecture field mismatch: expected $NORMALIZED_ARCH got $arch"
 contents=$(dpkg-deb --contents "$DEB_PATH")
 control_files=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -tf -)
+if printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/racket-compiled-cache[.]log$' >/dev/null; then
+  die "DEB payload unexpectedly includes racket compiled cache debug log"
+fi
 for script in ./postinst ./prerm ./postrm; do
   printf '%s\n' "$control_files" | grep -Fx "$script" >/dev/null \
     || die "DEB control archive missing $script"
@@ -88,6 +91,12 @@ else
   fi
   printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null \
     || die "cached DEB payload does not include system compiled cache .zo files"
+  runtime_collects_cache="./var/cache/racket/compiled/${DEFAULT_PREFIX#/}/share/racket/collects"
+  printf '%s\n' "$contents" | grep -F "$runtime_collects_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed collects cache .zo files"
+  runtime_pkgs_cache="./var/cache/racket/compiled/${DEFAULT_PREFIX#/}/share/racket/pkgs"
+  printf '%s\n' "$contents" | grep -F "$runtime_pkgs_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed package cache .zo files"
 fi
 prerm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./prerm)
 if [ "$CACHE_MODE" = postinstall ]; then
