@@ -367,7 +367,7 @@ build_staged_system_cache() {
   cp "$config_file" "$backup"
   write_staged_config "$config_file" "$stage_root" "$prefix" "$runtime_cache_root" "$staged_cache_root"
   mkdir -p "$staged_cache_root"
-  if ! "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --reset-cache -D --no-pkg-deps; then
+  if ! "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --reset-cache -D --no-pkg-deps --no-launcher; then
     cp "$backup" "$config_file"
     rm -f "$backup"
     return 1

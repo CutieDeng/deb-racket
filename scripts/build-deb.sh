@@ -171,7 +171,7 @@ cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
 #!/bin/sh
 set -e
 if [ "$1" = "configure" ]; then
-  raco setup --system --no-user --reset-cache -D --no-pkg-deps
+  raco setup --system --no-user --reset-cache -D --no-pkg-deps --no-launcher
   compiled_cache_root="/var/cache/racket/compiled"
   mkdir -p "$compiled_cache_root"
   empty_home=$(mktemp -d)

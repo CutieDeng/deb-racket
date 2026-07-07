@@ -80,7 +80,7 @@ for script in ./postinst ./prerm ./postrm; do
 done
 postinst_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postinst)
 if [ "$CACHE_MODE" = postinstall ]; then
-  printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null \
+  printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps --no-launcher' >/dev/null \
     || die "DEB postinst does not build the system compiled cache"
   printf '%s\n' "$postinst_content" | grep -F 'package-racket-rhombus-cache' >/dev/null \
     || die "DEB postinst does not warm the Rhombus demod cache"
