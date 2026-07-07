@@ -308,6 +308,7 @@ warm_staged_rhombus_cache() {
   local racket_bin="$4"
   local runtime_config_dir="/etc/racket"
   local runtime_cache_parent="/var/cache/racket"
+  local runtime_cache_root="$runtime_cache_parent/compiled"
   local staged_cache_parent="$stage_root$runtime_cache_parent"
   local runtime_share_dir="$prefix/share/racket"
   local runtime_collects_dir="$runtime_share_dir/collects"
@@ -338,7 +339,12 @@ $runtime_links"
   add_runtime_link "$stage_root$runtime_lib_dir" "$runtime_lib_dir"
   add_runtime_link "$config_dir" "$runtime_config_dir"
   add_runtime_link "$staged_cache_parent" "$runtime_cache_parent"
-  if ! "$racket_bin" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+  if ! "$racket_bin" -U -R "$runtime_cache_root" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm --version >/dev/null; then
+    cleanup_runtime_links
+    trap - EXIT
+    return 1
+  fi
+  if ! "$racket_bin" -U -R "$runtime_cache_root" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
     cleanup_runtime_links
     trap - EXIT
     return 1

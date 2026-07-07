@@ -172,8 +172,14 @@ cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
 set -e
 if [ "$1" = "configure" ]; then
   raco setup --system --no-user --reset-cache -D --no-pkg-deps
+  compiled_cache_root="/var/cache/racket/compiled"
+  mkdir -p "$compiled_cache_root"
   empty_home=$(mktemp -d)
-  if ! HOME="$empty_home" rhombus -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+  if ! HOME="$empty_home" racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm --version >/dev/null; then
+    rm -rf "$empty_home"
+    exit 1
+  fi
+  if ! HOME="$empty_home" racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
     rm -rf "$empty_home"
     exit 1
   fi
@@ -203,6 +209,7 @@ if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
       raco setup --system --delete-cache || true
     fi
     rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
+    rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
   fi
 fi
 exit 0
@@ -229,6 +236,7 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
   if ! other_racket_package_present; then
     rm -rf /var/cache/racket/compiled
     rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
+    rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
   fi
 fi
 exit 0

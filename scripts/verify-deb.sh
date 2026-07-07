@@ -84,6 +84,8 @@ if [ "$CACHE_MODE" = postinstall ]; then
     || die "DEB postinst does not build the system compiled cache"
   printf '%s\n' "$postinst_content" | grep -F 'package-racket-rhombus-cache' >/dev/null \
     || die "DEB postinst does not warm the Rhombus demod cache"
+  printf '%s\n' "$postinst_content" | grep -F 'racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm --version' >/dev/null \
+    || die "DEB postinst does not warm the Rhombus version cache into the system cache"
   if printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null; then
     die "postinstall DEB payload unexpectedly includes system compiled cache .zo files"
   fi
@@ -124,6 +126,8 @@ printf '%s\n' "$postrm_content" | grep -F 'rm -rf /var/cache/racket/compiled' >/
   || die "DEB postrm does not purge the system compiled cache directory"
 printf '%s\n' "$postrm_content" | grep -F 'rhombus-lib/rhombus/private/compiled/ephemeral/demod' >/dev/null \
   || die "DEB postrm does not purge the Rhombus demod cache directory"
+printf '%s\n' "$postrm_content" | grep -F 'rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral' >/dev/null \
+  || die "DEB postrm does not remove empty Rhombus ephemeral cache parents"
 printf '%s\n' "$postrm_content" | grep -F 'other_racket_package_present' >/dev/null \
   || die "DEB postrm does not guard shared cache deletion for package replacement"
 printf '%s\n' "$postrm_content" | grep -F "OTHER_RACKET_PACKAGE='$other_package'" >/dev/null \
