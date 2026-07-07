@@ -82,6 +82,8 @@ postinst_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postinst)
 if [ "$CACHE_MODE" = postinstall ]; then
   printf '%s\n' "$postinst_content" | grep -F 'raco setup --system --no-user --reset-cache -D --no-pkg-deps' >/dev/null \
     || die "DEB postinst does not build the system compiled cache"
+  printf '%s\n' "$postinst_content" | grep -F 'package-racket-rhombus-cache' >/dev/null \
+    || die "DEB postinst does not warm the Rhombus demod cache"
   if printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null; then
     die "postinstall DEB payload unexpectedly includes system compiled cache .zo files"
   fi
@@ -97,11 +99,16 @@ else
   runtime_pkgs_cache="./var/cache/racket/compiled/${DEFAULT_PREFIX#/}/share/racket/pkgs"
   printf '%s\n' "$contents" | grep -F "$runtime_pkgs_cache/" | grep -E '[.]zo$' >/dev/null \
     || die "cached DEB payload does not include runtime-keyed package cache .zo files"
+  rhombus_ephemeral_cache="./${DEFAULT_PREFIX#/}/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
+  printf '%s\n' "$contents" | grep -F "$rhombus_ephemeral_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include Rhombus demod cache .zo files"
 fi
 prerm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./prerm)
 if [ "$CACHE_MODE" = postinstall ]; then
   printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null \
     || die "DEB prerm does not delete the system compiled cache"
+  printf '%s\n' "$prerm_content" | grep -F 'package_present' >/dev/null \
+    || die "DEB prerm does not guard cache deletion for package replacement"
 else
   if printf '%s\n' "$prerm_content" | grep -F 'raco setup --system --delete-cache' >/dev/null; then
     die "cached DEB prerm unexpectedly deletes the system compiled cache through raco"
@@ -110,4 +117,8 @@ fi
 postrm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postrm)
 printf '%s\n' "$postrm_content" | grep -F 'rm -rf /var/cache/racket/compiled' >/dev/null \
   || die "DEB postrm does not purge the system compiled cache directory"
+printf '%s\n' "$postrm_content" | grep -F 'rhombus-lib/rhombus/private/compiled/ephemeral/demod' >/dev/null \
+  || die "DEB postrm does not purge the Rhombus demod cache directory"
+printf '%s\n' "$postrm_content" | grep -F 'any_racket_package_present' >/dev/null \
+  || die "DEB postrm does not guard shared cache deletion for package replacement"
 printf 'Validated DEB: %s\n' "$DEB_PATH"

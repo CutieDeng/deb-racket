@@ -218,6 +218,15 @@ require_staged_system_cache() {
   fi
 }
 
+require_staged_rhombus_cache() {
+  local stage_root="$1"
+  local prefix="$2"
+  local rhombus_ephemeral_cache="$stage_root$prefix/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
+  if ! find "$rhombus_ephemeral_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
+    die "staged Rhombus demod cache is empty: $rhombus_ephemeral_cache"
+  fi
+}
+
 escape_config_sed_pattern() {
   printf '%s\n' "$1" | sed 's/[][\\.^$*|]/\\&/g'
 }
@@ -292,6 +301,52 @@ normalize_staged_system_cache() {
   find "$cache_root" -type d -empty -delete 2>/dev/null || true
 }
 
+warm_staged_rhombus_cache() {
+  local stage_root="$1"
+  local prefix="$2"
+  local config_dir="$3"
+  local racket_bin="$4"
+  local runtime_config_dir="/etc/racket"
+  local runtime_cache_parent="/var/cache/racket"
+  local staged_cache_parent="$stage_root$runtime_cache_parent"
+  local runtime_share_dir="$prefix/share/racket"
+  local runtime_collects_dir="$runtime_share_dir/collects"
+  local runtime_lib_dir="$prefix/lib/racket"
+  local runtime_links=
+  cleanup_runtime_links() {
+    if [ -n "${runtime_links:-}" ]; then
+      printf '%s\n' "$runtime_links" | while IFS= read -r runtime_link; do
+        [ -n "$runtime_link" ] || continue
+        [ -L "$runtime_link" ] && rm -f "$runtime_link"
+      done
+    fi
+  }
+  add_runtime_link() {
+    local runtime_link_target="$1"
+    local runtime_link_path="$2"
+    if [ -e "$runtime_link_path" ] || [ -L "$runtime_link_path" ]; then
+      die "runtime staging link path already exists: $runtime_link_path"
+    fi
+    mkdir -p "$(dirname "$runtime_link_path")"
+    ln -s "$runtime_link_target" "$runtime_link_path"
+    runtime_links="$runtime_link_path
+$runtime_links"
+  }
+  mkdir -p "$staged_cache_parent"
+  trap cleanup_runtime_links EXIT
+  add_runtime_link "$stage_root$runtime_share_dir" "$runtime_share_dir"
+  add_runtime_link "$stage_root$runtime_lib_dir" "$runtime_lib_dir"
+  add_runtime_link "$config_dir" "$runtime_config_dir"
+  add_runtime_link "$staged_cache_parent" "$runtime_cache_parent"
+  if ! "$racket_bin" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+    cleanup_runtime_links
+    trap - EXIT
+    return 1
+  fi
+  cleanup_runtime_links
+  trap - EXIT
+}
+
 build_staged_system_cache() {
   local stage_root="$1"
   local prefix="$2"
@@ -313,8 +368,12 @@ build_staged_system_cache() {
   fi
   cp "$backup" "$config_file"
   rm -f "$backup"
+  if ! warm_staged_rhombus_cache "$stage_root" "$prefix" "$config_dir" "$racket_bin"; then
+    return 1
+  fi
   normalize_staged_system_cache "$stage_root" "$prefix"
   require_staged_system_cache "$stage_root" "$prefix"
+  require_staged_rhombus_cache "$stage_root" "$prefix"
 }
 
 reset_output_dir() {

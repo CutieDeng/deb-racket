@@ -172,6 +172,12 @@ cat > "$DEBIAN_DIR/postinst" <<'POSTINST'
 set -e
 if [ "$1" = "configure" ]; then
   raco setup --system --no-user --reset-cache -D --no-pkg-deps
+  empty_home=$(mktemp -d)
+  if ! HOME="$empty_home" rhombus -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+    rm -rf "$empty_home"
+    exit 1
+  fi
+  rm -rf "$empty_home"
 fi
 exit 0
 POSTINST
@@ -188,9 +194,15 @@ if [ "$CACHE_MODE" = postinstall ]; then
 cat > "$DEBIAN_DIR/prerm" <<'PRERM'
 #!/bin/sh
 set -e
+package_present() {
+  dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null | grep -q '^i'
+}
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
-  if command -v raco >/dev/null 2>&1; then
-    raco setup --system --delete-cache || true
+  if ! package_present "racket9-cached"; then
+    if command -v raco >/dev/null 2>&1; then
+      raco setup --system --delete-cache || true
+    fi
+    rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
   fi
 fi
 exit 0
@@ -206,8 +218,17 @@ chmod 755 "$DEBIAN_DIR/prerm"
 cat > "$DEBIAN_DIR/postrm" <<'POSTRM'
 #!/bin/sh
 set -e
+package_present() {
+  dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null | grep -q '^i'
+}
+any_racket_package_present() {
+  package_present "racket9" || package_present "racket9-cached"
+}
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-  rm -rf /var/cache/racket/compiled
+  if ! any_racket_package_present; then
+    rm -rf /var/cache/racket/compiled
+    rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
+  fi
 fi
 exit 0
 POSTRM
