@@ -218,20 +218,22 @@ chmod 755 "$DEBIAN_DIR/prerm"
 cat > "$DEBIAN_DIR/postrm" <<'POSTRM'
 #!/bin/sh
 set -e
+OTHER_RACKET_PACKAGE='@OTHER_RACKET_PACKAGE@'
 package_present() {
   dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null | grep -q '^i'
 }
-any_racket_package_present() {
-  package_present "racket9" || package_present "racket9-cached"
+other_racket_package_present() {
+  package_present "$OTHER_RACKET_PACKAGE"
 }
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-  if ! any_racket_package_present; then
+  if ! other_racket_package_present; then
     rm -rf /var/cache/racket/compiled
     rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
   fi
 fi
 exit 0
 POSTRM
+sed -i "s|@OTHER_RACKET_PACKAGE@|$CONFLICTING_PACKAGE_NAME|g" "$DEBIAN_DIR/postrm"
 chmod 755 "$DEBIAN_DIR/postrm"
 
 (cd "$STAGE_ROOT" && find . -type f ! -path './DEBIAN/*' -print0 | sort -z | xargs -0 md5sum > DEBIAN/md5sums)

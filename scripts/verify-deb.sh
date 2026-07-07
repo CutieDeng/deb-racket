@@ -115,10 +115,20 @@ else
   fi
 fi
 postrm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./postrm)
+if [ "$CACHE_MODE" = cached ]; then
+  other_package="$BASE_PACKAGE_NAME"
+else
+  other_package="$CACHED_PACKAGE_NAME"
+fi
 printf '%s\n' "$postrm_content" | grep -F 'rm -rf /var/cache/racket/compiled' >/dev/null \
   || die "DEB postrm does not purge the system compiled cache directory"
 printf '%s\n' "$postrm_content" | grep -F 'rhombus-lib/rhombus/private/compiled/ephemeral/demod' >/dev/null \
   || die "DEB postrm does not purge the Rhombus demod cache directory"
-printf '%s\n' "$postrm_content" | grep -F 'any_racket_package_present' >/dev/null \
+printf '%s\n' "$postrm_content" | grep -F 'other_racket_package_present' >/dev/null \
   || die "DEB postrm does not guard shared cache deletion for package replacement"
+printf '%s\n' "$postrm_content" | grep -F "OTHER_RACKET_PACKAGE='$other_package'" >/dev/null \
+  || die "DEB postrm does not guard shared cache deletion with the other package"
+if printf '%s\n' "$postrm_content" | grep -F '@OTHER_RACKET_PACKAGE@' >/dev/null; then
+  die "DEB postrm contains unreplaced other package placeholder"
+fi
 printf 'Validated DEB: %s\n' "$DEB_PATH"
