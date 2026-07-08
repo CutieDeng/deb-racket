@@ -216,15 +216,44 @@ require_staged_system_cache() {
   if ! find "$runtime_pkgs_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
     die "runtime-keyed staged package compiled cache is empty: $runtime_pkgs_cache"
   fi
+  require_staged_cache_deps_runtime_keyed "$cache_root" "$stage_root"
+}
+
+require_staged_cache_deps_runtime_keyed() {
+  local cache_root="$1"
+  local stage_root="$2"
+  if grep -RFl --include '*.dep' "$stage_root" "$cache_root" 2>/dev/null | grep -q .; then
+    die "staged compiled cache dependency metadata contains buildroot paths: $cache_root"
+  fi
+}
+
+require_staged_rhombus_cache_root() {
+  local demod_cache_root="$1"
+  local cache_kind="$2"
+  local prefix="$3"
+  local runtime_collects_dir="$prefix/share/racket/collects"
+  local runtime_pkgs_dir="$prefix/share/racket/pkgs"
+  local runtime_collects_cache="$demod_cache_root/${runtime_collects_dir#/}"
+  local runtime_pkgs_cache="$demod_cache_root/${runtime_pkgs_dir#/}"
+  if ! find "$runtime_collects_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
+    die "runtime-keyed staged Rhombus demod $cache_kind collects cache is empty: $runtime_collects_cache"
+  fi
+  if ! find "$runtime_pkgs_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
+    die "runtime-keyed staged Rhombus demod $cache_kind package cache is empty: $runtime_pkgs_cache"
+  fi
 }
 
 require_staged_rhombus_cache() {
   local stage_root="$1"
   local prefix="$2"
   local rhombus_ephemeral_cache="$stage_root$prefix/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
-  if ! find "$rhombus_ephemeral_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
-    die "staged Rhombus demod cache is empty: $rhombus_ephemeral_cache"
+  local stage_key="${stage_root#/}"
+  require_staged_rhombus_cache_root "$rhombus_ephemeral_cache/linklet" linklet "$prefix"
+  require_staged_rhombus_cache_root "$rhombus_ephemeral_cache/native" native "$prefix"
+  if [ -n "$stage_key" ] && (cd "$rhombus_ephemeral_cache" && find . -path "*/$stage_key/*" -print -quit 2>/dev/null | grep -q .); then
+    die "staged Rhombus demod cache contains buildroot-keyed paths: $stage_key"
   fi
+  require_staged_cache_deps_runtime_keyed "$rhombus_ephemeral_cache" "$stage_root"
 }
 
 escape_config_sed_pattern() {
@@ -291,14 +320,72 @@ move_staged_cache_tree() {
   fi
 }
 
+rewrite_text_file() {
+  local path="$1"
+  local from="$2"
+  local to="$3"
+  local escaped_from escaped_to tmp_file
+  escaped_from=$(escape_config_sed_pattern "$from")
+  escaped_to=$(escape_config_sed_replacement "$to")
+  tmp_file="$path.package-racket-rewrite.$$"
+  sed "s|$escaped_from|$escaped_to|g" "$path" > "$tmp_file" || { rm -f "$tmp_file"; return 1; }
+  mv "$tmp_file" "$path"
+}
+
+touch_cache_zos_after_deps() {
+  local cache_root="$1"
+  local dep_path dep_seconds max_dep_seconds touch_seconds
+  max_dep_seconds=0
+  [ -d "$cache_root" ] || return 0
+  while IFS= read -r -d '' dep_path; do
+    dep_seconds=$(stat -c %Y "$dep_path")
+    if [ "$dep_seconds" -gt "$max_dep_seconds" ]; then
+      max_dep_seconds="$dep_seconds"
+    fi
+  done < <(find "$cache_root" -type f -name '*.dep' -print0)
+  [ "$max_dep_seconds" -gt 0 ] || return 0
+  touch_seconds=$((max_dep_seconds + 1))
+  find "$cache_root" -type f -name '*.zo' -exec touch -d "@$touch_seconds" {} +
+}
+
+rewrite_staged_cache_dep_paths() {
+  local cache_root="$1"
+  local stage_root="$2"
+  local prefix="$3"
+  local dep_path
+  [ -d "$cache_root" ] || return 0
+  while IFS= read -r -d '' dep_path; do
+    rewrite_text_file "$dep_path" "$stage_root$prefix" "$prefix"
+    rewrite_text_file "$dep_path" "$stage_root/etc" "/etc"
+  done < <(find "$cache_root" -type f -name '*.dep' -print0)
+  touch_cache_zos_after_deps "$cache_root"
+}
+
 normalize_staged_system_cache() {
   local stage_root="$1"
   local prefix="$2"
   local cache_root="$stage_root/var/cache/racket/compiled"
   move_staged_cache_tree "$cache_root" "$stage_root$prefix/share/racket/collects" "$prefix/share/racket/collects"
   move_staged_cache_tree "$cache_root" "$stage_root$prefix/share/racket/pkgs" "$prefix/share/racket/pkgs"
+  rewrite_staged_cache_dep_paths "$cache_root" "$stage_root" "$prefix"
   rm -f "$stage_root/var/cache/racket/racket-compiled-cache.log"
   find "$cache_root" -type d -empty -delete 2>/dev/null || true
+}
+
+normalize_staged_rhombus_cache() {
+  local stage_root="$1"
+  local prefix="$2"
+  local demod_root="$stage_root$prefix/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
+  local demod_cache_root
+  [ -d "$demod_root" ] || return 0
+  for demod_cache_root in "$demod_root"/*; do
+    [ -d "$demod_cache_root" ] || continue
+    move_staged_cache_tree "$demod_cache_root" "$stage_root$prefix/share/racket/collects" "$prefix/share/racket/collects"
+    move_staged_cache_tree "$demod_cache_root" "$stage_root$prefix/share/racket/pkgs" "$prefix/share/racket/pkgs"
+    find "$demod_cache_root" -type d -empty -delete 2>/dev/null || true
+  done
+  rewrite_staged_cache_dep_paths "$demod_root" "$stage_root" "$prefix"
+  find "$demod_root" -type d -empty -delete 2>/dev/null || true
 }
 
 warm_staged_rhombus_cache() {
@@ -313,7 +400,12 @@ warm_staged_rhombus_cache() {
   local runtime_share_dir="$prefix/share/racket"
   local runtime_collects_dir="$runtime_share_dir/collects"
   local runtime_lib_dir="$prefix/lib/racket"
+  local runtime_bin_dir="$prefix/bin"
+  local runtime_racket_bin="$runtime_bin_dir/racket"
+  local runtime_rhombus_bin="$runtime_bin_dir/rhombus"
+  local staged_rhombus_bin="$stage_root$runtime_bin_dir/rhombus"
   local runtime_links=
+  local empty_home=
   cleanup_runtime_links() {
     if [ -n "${runtime_links:-}" ]; then
       printf '%s\n' "$runtime_links" | while IFS= read -r runtime_link; do
@@ -321,6 +413,10 @@ warm_staged_rhombus_cache() {
         [ -L "$runtime_link" ] && rm -f "$runtime_link"
       done
     fi
+  }
+  cleanup_warmup() {
+    cleanup_runtime_links
+    [ -n "${empty_home:-}" ] && rm -rf "$empty_home"
   }
   add_runtime_link() {
     local runtime_link_target="$1"
@@ -334,22 +430,26 @@ warm_staged_rhombus_cache() {
 $runtime_links"
   }
   mkdir -p "$staged_cache_parent"
-  trap cleanup_runtime_links EXIT
+  [ -x "$staged_rhombus_bin" ] || die "missing staged Rhombus launcher: $staged_rhombus_bin"
+  empty_home=$(mktemp -d)
+  trap cleanup_warmup EXIT
   add_runtime_link "$stage_root$runtime_share_dir" "$runtime_share_dir"
   add_runtime_link "$stage_root$runtime_lib_dir" "$runtime_lib_dir"
   add_runtime_link "$config_dir" "$runtime_config_dir"
   add_runtime_link "$staged_cache_parent" "$runtime_cache_parent"
-  if ! "$racket_bin" -U -R "$runtime_cache_root" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm --version >/dev/null; then
-    cleanup_runtime_links
+  add_runtime_link "$racket_bin" "$runtime_racket_bin"
+  add_runtime_link "$staged_rhombus_bin" "$runtime_rhombus_bin"
+  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$runtime_cache_root" "$runtime_rhombus_bin" --version >/dev/null; then
+    cleanup_warmup
     trap - EXIT
     return 1
   fi
-  if ! "$racket_bin" -U -R "$runtime_cache_root" -X "$runtime_collects_dir" -G "$runtime_config_dir" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
-    cleanup_runtime_links
+  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$runtime_cache_root" "$runtime_rhombus_bin" -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+    cleanup_warmup
     trap - EXIT
     return 1
   fi
-  cleanup_runtime_links
+  cleanup_warmup
   trap - EXIT
 }
 
@@ -367,7 +467,7 @@ build_staged_system_cache() {
   cp "$config_file" "$backup"
   write_staged_config "$config_file" "$stage_root" "$prefix" "$runtime_cache_root" "$staged_cache_root"
   mkdir -p "$staged_cache_root"
-  if ! "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --reset-cache -D --no-pkg-deps --no-launcher; then
+  if ! "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup -j 1 --system --no-user --reset-cache -D --no-pkg-deps --no-launcher; then
     cp "$backup" "$config_file"
     rm -f "$backup"
     return 1
@@ -378,6 +478,7 @@ build_staged_system_cache() {
     return 1
   fi
   normalize_staged_system_cache "$stage_root" "$prefix"
+  normalize_staged_rhombus_cache "$stage_root" "$prefix"
   require_staged_system_cache "$stage_root" "$prefix"
   require_staged_rhombus_cache "$stage_root" "$prefix"
 }

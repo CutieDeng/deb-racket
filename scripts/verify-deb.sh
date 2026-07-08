@@ -84,7 +84,7 @@ if [ "$CACHE_MODE" = postinstall ]; then
     || die "DEB postinst does not build the system compiled cache"
   printf '%s\n' "$postinst_content" | grep -F 'package-racket-rhombus-cache' >/dev/null \
     || die "DEB postinst does not warm the Rhombus demod cache"
-  printf '%s\n' "$postinst_content" | grep -F 'racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm --version' >/dev/null \
+  printf '%s\n' "$postinst_content" | grep -F 'PLTCOMPILEDROOTS="$compiled_cache_root" rhombus --version' >/dev/null \
     || die "DEB postinst does not warm the Rhombus version cache into the system cache"
   if printf '%s\n' "$contents" | grep -E '(^|[[:space:]])\./var/cache/racket/compiled/.+[.]zo$' >/dev/null; then
     die "postinstall DEB payload unexpectedly includes system compiled cache .zo files"
@@ -104,6 +104,21 @@ else
   rhombus_ephemeral_cache="./${DEFAULT_PREFIX#/}/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
   printf '%s\n' "$contents" | grep -F "$rhombus_ephemeral_cache/" | grep -E '[.]zo$' >/dev/null \
     || die "cached DEB payload does not include Rhombus demod cache .zo files"
+  runtime_rhombus_collects_cache="$rhombus_ephemeral_cache/linklet/${DEFAULT_PREFIX#/}/share/racket/collects"
+  printf '%s\n' "$contents" | grep -F "$runtime_rhombus_collects_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed Rhombus demod collects cache .zo files"
+  runtime_rhombus_pkgs_cache="$rhombus_ephemeral_cache/linklet/${DEFAULT_PREFIX#/}/share/racket/pkgs"
+  printf '%s\n' "$contents" | grep -F "$runtime_rhombus_pkgs_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed Rhombus demod package cache .zo files"
+  runtime_rhombus_native_collects_cache="$rhombus_ephemeral_cache/native/${DEFAULT_PREFIX#/}/share/racket/collects"
+  printf '%s\n' "$contents" | grep -F "$runtime_rhombus_native_collects_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed Rhombus demod native collects cache .zo files"
+  runtime_rhombus_native_pkgs_cache="$rhombus_ephemeral_cache/native/${DEFAULT_PREFIX#/}/share/racket/pkgs"
+  printf '%s\n' "$contents" | grep -F "$runtime_rhombus_native_pkgs_cache/" | grep -E '[.]zo$' >/dev/null \
+    || die "cached DEB payload does not include runtime-keyed Rhombus demod native package cache .zo files"
+  if printf '%s\n' "$contents" | grep -F "$rhombus_ephemeral_cache/" | grep -F '/deb-root/' >/dev/null; then
+    die "cached DEB payload includes buildroot-keyed Rhombus demod cache paths"
+  fi
 fi
 prerm_content=$(dpkg-deb --ctrl-tarfile "$DEB_PATH" | tar -xOf - ./prerm)
 if [ "$CACHE_MODE" = postinstall ]; then

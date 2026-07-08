@@ -175,11 +175,11 @@ if [ "$1" = "configure" ]; then
   compiled_cache_root="/var/cache/racket/compiled"
   mkdir -p "$compiled_cache_root"
   empty_home=$(mktemp -d)
-  if ! HOME="$empty_home" racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm --version >/dev/null; then
+  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$compiled_cache_root" rhombus --version >/dev/null; then
     rm -rf "$empty_home"
     exit 1
   fi
-  if ! HOME="$empty_home" racket -U -R "$compiled_cache_root" -N rhombus -l- rhombus/run.rhm -e 'println("package-racket-rhombus-cache")' >/dev/null; then
+  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$compiled_cache_root" rhombus -e 'println("package-racket-rhombus-cache")' >/dev/null; then
     rm -rf "$empty_home"
     exit 1
   fi
