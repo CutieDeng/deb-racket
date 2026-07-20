@@ -22,7 +22,7 @@ jobs:
         include:
           - id: 'debian12-amd64-postinstall'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -33,7 +33,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-amd64-cached'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'cached'
             package_name: 'racket9-cached'
@@ -44,7 +44,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-amd64-postinstall'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -55,7 +55,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-amd64-cached'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'cached'
             package_name: 'racket9-cached'
@@ -66,7 +66,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-arm64-postinstall'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -74,10 +74,10 @@ jobs:
             container: 'debian:12'
             jobs: 2
             artifact_name: 'deb-debian12-arm64-postinstall'
-            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-arm64-cached'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'cached'
             package_name: 'racket9-cached'
@@ -85,10 +85,10 @@ jobs:
             container: 'debian:12'
             jobs: 2
             artifact_name: 'deb-debian12-arm64-cached'
-            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-arm64-postinstall'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -96,10 +96,10 @@ jobs:
             container: 'ubuntu:24.04'
             jobs: 2
             artifact_name: 'deb-ubuntu2404-arm64-postinstall'
-            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-arm64-cached'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'cached'
             package_name: 'racket9-cached'
@@ -107,7 +107,7 @@ jobs:
             container: 'ubuntu:24.04'
             jobs: 2
             artifact_name: 'deb-ubuntu2404-arm64-cached'
-            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.container }}
@@ -158,7 +158,7 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
           PACKAGE_NAME: ${{ matrix.package_name }}
-          PACKAGE_VERSION: '9.2.3'
+          PACKAGE_VERSION: '9.2.4'
         run: |
           set -euo pipefail
           smoke_step() { printf 'DEB smoke: %s\n' "$1"; }
@@ -244,11 +244,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: 'v9.2.3'
-          RELEASE_NAME: 'Racket 9.2.3 DEB packages'
+          RELEASE_TAG: 'v9.2.4'
+          RELEASE_NAME: 'Racket 9.2.4 DEB packages'
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
-          PACKAGE_VERSION: '9.2.3'
+          PACKAGE_VERSION: '9.2.4'
           EXPECTED_DEB_COUNT: 8
         run: |
           set -euo pipefail

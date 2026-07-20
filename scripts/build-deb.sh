@@ -123,7 +123,6 @@ fi
 SOURCE_DIR="${source_dirs[0]}"
 
 sed -i 's|))$|) (default-scope . "installation") (compiled-file-cache-roots . (user system)) (compiled-file-system-cache-root . "/var/cache/racket/compiled"))|' "$SOURCE_DIR/etc/config.rktd"
-sed -i 's/"1[.]1"/"3"/g' "$SOURCE_DIR/collects/openssl/libssl.rkt" "$SOURCE_DIR/collects/openssl/libcrypto.rkt"
 cd "$SOURCE_DIR/src"
 ./configure \
   --disable-debug \
@@ -161,8 +160,14 @@ if [ "$CACHE_MODE" = cached ]; then
 Provides: $BASE_PACKAGE_NAME
 CONTROL
 fi
+# arm64 Racket runs crypto+TLS on the in-tree rktcrypto engine and never
+# loads OpenSSL, so the package declares no libssl dependency there.
+RUNTIME_DEPENDS="libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g"
+if [ "$NORMALIZED_ARCH" = arm64 ]; then
+  RUNTIME_DEPENDS="libc6, libedit2, libffi8, libsqlite3-0, zlib1g"
+fi
 cat >> "$DEBIAN_DIR/control" <<CONTROL
-Depends: libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g
+Depends: $RUNTIME_DEPENDS
 Description: $PACKAGE_SUMMARY
  Racket packaged from a stable source release archive.
 CONTROL
