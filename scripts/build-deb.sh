@@ -123,6 +123,10 @@ fi
 SOURCE_DIR="${source_dirs[0]}"
 
 sed -i 's|))$|) (default-scope . "installation") (compiled-file-cache-roots . (user system)) (compiled-file-system-cache-root . "/var/cache/racket/compiled"))|' "$SOURCE_DIR/etc/config.rktd"
+# /etc/racket is not under the install prefix, so the bundled self catalog
+# needs an absolute path here (the source tree ships a brew-layout relative one)
+sed -i 's|"../../share/racket/self-catalog"|"'"$PREFIX"'/share/racket/self-catalog"|' "$SOURCE_DIR/etc/config.rktd"
+grep -F '/share/racket/self-catalog' "$SOURCE_DIR/etc/config.rktd" >/dev/null || die "config lost the self catalog entry"
 cd "$SOURCE_DIR/src"
 ./configure \
   --disable-debug \
