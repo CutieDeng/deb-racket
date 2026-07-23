@@ -18,7 +18,7 @@ Options:
   --source-url URL       Source archive URL. Defaults to the generated release URL.
   --artifact-dir PATH    Directory that receives the final .deb.
   --work-dir PATH        Build work directory.
-  --deb-system SYSTEM    debian12 or ubuntu2404.
+  --deb-system SYSTEM    debian12, ubuntu2204, or ubuntu2404.
   --deb-release RELEASE  Package revision base, for example 1. The system suffix is appended separately.
   --cache-mode MODE      postinstall or cached. Defaults to postinstall.
   --prefix PATH          Install prefix inside the package. Defaults to generated /usr.

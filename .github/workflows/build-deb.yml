@@ -64,6 +64,28 @@ jobs:
             jobs: 2
             artifact_name: 'deb-ubuntu2404-amd64-cached'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2204-amd64-postinstall'
+            deb_system: 'ubuntu2204'
+            deb_release: '3'
+            deb_arch: 'amd64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
+            runner: 'ubuntu-24.04'
+            container: 'ubuntu:22.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2204-amd64-postinstall'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2204-amd64-cached'
+            deb_system: 'ubuntu2204'
+            deb_release: '3'
+            deb_arch: 'amd64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04'
+            container: 'ubuntu:22.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2204-amd64-cached'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-arm64-postinstall'
             deb_system: 'debian12'
             deb_release: '3'
@@ -107,6 +129,28 @@ jobs:
             container: 'ubuntu:24.04'
             jobs: 2
             artifact_name: 'deb-ubuntu2404-arm64-cached'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2204-arm64-postinstall'
+            deb_system: 'ubuntu2204'
+            deb_release: '3'
+            deb_arch: 'arm64'
+            cache_mode: 'postinstall'
+            package_name: 'racket9'
+            runner: 'ubuntu-24.04-arm'
+            container: 'ubuntu:22.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2204-arm64-postinstall'
+            setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
+          - id: 'ubuntu2204-arm64-cached'
+            deb_system: 'ubuntu2204'
+            deb_release: '3'
+            deb_arch: 'arm64'
+            cache_mode: 'cached'
+            package_name: 'racket9-cached'
+            runner: 'ubuntu-24.04-arm'
+            container: 'ubuntu:22.04'
+            jobs: 2
+            artifact_name: 'deb-ubuntu2204-arm64-cached'
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
     runs-on: ${{ matrix.runner }}
     container:
@@ -249,7 +293,7 @@ jobs:
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
           PACKAGE_VERSION: '9.2.5'
-          EXPECTED_DEB_COUNT: 8
+          EXPECTED_DEB_COUNT: 12
         run: |
           set -euo pipefail
           command -v gh >/dev/null 2>&1 || { echo 'gh CLI is required on the publish runner'; exit 1; }

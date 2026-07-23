@@ -98,8 +98,8 @@ normalize_arch() {
 
 validate_deb_system() {
   case "$1" in
-    debian12|ubuntu2404) ;;
-    *) die "deb system must be debian12 or ubuntu2404: $1" ;;
+    debian12|ubuntu2204|ubuntu2404) ;;
+    *) die "deb system must be debian12, ubuntu2204, or ubuntu2404: $1" ;;
   esac
 }
 

@@ -71,7 +71,7 @@ scripts/build-deb.sh \
   --prefix /usr
 ```
 
-Supported Debian-family systems are `debian12` and `ubuntu2404`. The package
+Supported Debian-family systems are `debian12`, `ubuntu2204`, and `ubuntu2404`. The package
 revision is generated as `deb-release.deb-system`, so `3`
 and `ubuntu2404` produce version `9.2.5-3.ubuntu2404`.
 
