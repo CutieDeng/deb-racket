@@ -20,7 +20,7 @@ Options:
   --work-dir PATH        Build work directory.
   --deb-system SYSTEM    debian12, ubuntu2204, or ubuntu2404.
   --deb-release RELEASE  Package revision base, for example 1. The system suffix is appended separately.
-  --cache-mode MODE      postinstall or cached. Defaults to postinstall.
+  --cache-mode MODE      postinstall or cached. Defaults to cached.
   --prefix PATH          Install prefix inside the package. Defaults to generated /usr.
   --deb-arch ARCH        amd64, x86_64, x64, arm64, or aarch64.
   --jobs N               Parallel jobs passed to make.
@@ -71,7 +71,6 @@ validate_deb_release "$DEB_RELEASE"
 validate_cache_mode "$CACHE_MODE"
 NORMALIZED_ARCH=$(normalize_arch "$DEB_ARCH")
 PACKAGE_NAME=$(package_name_for_cache_mode "$CACHE_MODE")
-CONFLICTING_PACKAGE_NAME=$(conflicting_package_name_for_cache_mode "$CACHE_MODE")
 if [ -n "$SOURCE_ARCHIVE" ] && [ "$SOURCE_URL_EXPLICIT" = 1 ]; then
   usage_error "use either --source-archive or --source-url, not both"
 fi
@@ -86,7 +85,7 @@ EXTRACT_ROOT="$WORK_DIR/source-tree"
 STAGE_ROOT="$WORK_DIR/deb-root"
 DEBIAN_DIR="$STAGE_ROOT/DEBIAN"
 DEB_NAME=$(deb_name_for_arch "$NORMALIZED_ARCH" "$DEB_RELEASE" "$DEB_SYSTEM" "$CACHE_MODE")
-DEB_VERSION=$(deb_package_version "$DEB_RELEASE" "$DEB_SYSTEM")
+DEB_VERSION=$(deb_package_version "$DEB_RELEASE" "$DEB_SYSTEM" "$CACHE_MODE")
 
 printf 'Repository root: %s\n' "$REPO_ROOT"
 printf 'DEB system: %s\n' "$DEB_SYSTEM"
@@ -148,6 +147,8 @@ if ! find "$STAGE_ROOT" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
   die "staged package root is empty: $STAGE_ROOT"
 fi
 mkdir -p "$DEBIAN_DIR"
+# Bounded migration from the previously published split-name cached package:
+# both cache modes now build $BASE_PACKAGE_NAME and take over the legacy name.
 cat > "$DEBIAN_DIR/control" <<CONTROL
 Package: $PACKAGE_NAME
 Version: $DEB_VERSION
@@ -156,14 +157,10 @@ Priority: optional
 Architecture: $NORMALIZED_ARCH
 Maintainer: $PACKAGE_MAINTAINER
 Homepage: $PACKAGE_HOMEPAGE
-Conflicts: $CONFLICTING_PACKAGE_NAME
-Replaces: $CONFLICTING_PACKAGE_NAME
+Conflicts: $LEGACY_CACHED_PACKAGE_NAME
+Replaces: $LEGACY_CACHED_PACKAGE_NAME
+Provides: $LEGACY_CACHED_PACKAGE_NAME (= $DEB_VERSION)
 CONTROL
-if [ "$CACHE_MODE" = cached ]; then
-  cat >> "$DEBIAN_DIR/control" <<CONTROL
-Provides: $BASE_PACKAGE_NAME
-CONTROL
-fi
 # arm64 Racket runs crypto+TLS on the in-tree rktcrypto engine and never
 # loads OpenSSL, so the package declares no libssl dependency there.
 RUNTIME_DEPENDS="libc6, libedit2, libffi8, libssl3, libsqlite3-0, zlib1g"
@@ -209,17 +206,12 @@ if [ "$CACHE_MODE" = postinstall ]; then
 cat > "$DEBIAN_DIR/prerm" <<'PRERM'
 #!/bin/sh
 set -e
-package_present() {
-  dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null | grep -q '^i'
-}
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
-  if ! package_present "racket9-cached"; then
-    if command -v raco >/dev/null 2>&1; then
-      raco setup --system --delete-cache || true
-    fi
-    rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
-    rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
+  if command -v raco >/dev/null 2>&1; then
+    raco setup --system --delete-cache || true
   fi
+  rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
+  rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
 fi
 exit 0
 PRERM
@@ -234,23 +226,13 @@ chmod 755 "$DEBIAN_DIR/prerm"
 cat > "$DEBIAN_DIR/postrm" <<'POSTRM'
 #!/bin/sh
 set -e
-OTHER_RACKET_PACKAGE='@OTHER_RACKET_PACKAGE@'
-package_present() {
-  dpkg-query -W -f='${db:Status-Abbrev}' "$1" 2>/dev/null | grep -q '^i'
-}
-other_racket_package_present() {
-  package_present "$OTHER_RACKET_PACKAGE"
-}
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-  if ! other_racket_package_present; then
-    rm -rf /var/cache/racket/compiled
-    rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
-    rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
-  fi
+  rm -rf /var/cache/racket/compiled
+  rm -rf /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod
+  rmdir /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral /usr/share/racket/pkgs/rhombus-lib/rhombus/private/compiled 2>/dev/null || true
 fi
 exit 0
 POSTRM
-sed -i "s|@OTHER_RACKET_PACKAGE@|$CONFLICTING_PACKAGE_NAME|g" "$DEBIAN_DIR/postrm"
 chmod 755 "$DEBIAN_DIR/postrm"
 
 (cd "$STAGE_ROOT" && find . -type f ! -path './DEBIAN/*' -print0 | sort -z | xargs -0 md5sum > DEBIAN/md5sums)

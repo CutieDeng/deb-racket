@@ -5,7 +5,7 @@ set -euo pipefail
 # Generated entrypoint: deb-common.sh
 
 BASE_PACKAGE_NAME='racket9'
-CACHED_PACKAGE_NAME='racket9-cached'
+LEGACY_CACHED_PACKAGE_NAME='racket9-cached'
 PACKAGE_NAME="$BASE_PACKAGE_NAME"
 PACKAGE_VERSION='9.2.5'
 PACKAGE_SOURCE_VERSION='9.2.5'
@@ -13,7 +13,7 @@ DEFAULT_DEB_SYSTEM='ubuntu2404'
 DEFAULT_DEB_RELEASE='3'
 DEFAULT_DEB_ARCH='amd64'
 DEFAULT_PREFIX='/usr'
-DEFAULT_CACHE_MODE=postinstall
+DEFAULT_CACHE_MODE=cached
 SOURCE_ARCHIVE_NAME='racket-minimal-9.2.5-src.tgz'
 DEFAULT_SOURCE_URL='https://github.com/CutieDeng/racket/releases/download/v9.2.5/racket-minimal-9.2.5-src.tgz'
 SOURCE_SHA256='a44ea98041383b97e1740ff8a809d784fa8c6a6702d815cd9e69683fd7254171'
@@ -126,31 +126,33 @@ validate_cache_mode() {
 package_name_for_cache_mode() {
   local mode="$1"
   validate_cache_mode "$mode"
-  case "$mode" in
-    postinstall) printf '%s\n' "$BASE_PACKAGE_NAME" ;;
-    cached) printf '%s\n' "$CACHED_PACKAGE_NAME" ;;
-  esac
+  printf '%s\n' "$BASE_PACKAGE_NAME"
 }
 
-conflicting_package_name_for_cache_mode() {
+cache_mode_rank() {
   local mode="$1"
   validate_cache_mode "$mode"
   case "$mode" in
-    postinstall) printf '%s\n' "$CACHED_PACKAGE_NAME" ;;
-    cached) printf '%s\n' "$BASE_PACKAGE_NAME" ;;
+    postinstall) printf '1\n' ;;
+    cached) printf '2\n' ;;
   esac
 }
 
+# system stays ahead of rank so the unified revision sorts above the legacy
+# split-name revision release.system under dpkg comparison; rank stays ahead
+# of the mode word so cached (rank 2) wins upgrades over postinstall (rank 1)
 deb_full_release() {
   local release="$1"
   local system="$2"
-  printf '%s.%s\n' "$release" "$system"
+  local mode="${3:-$DEFAULT_CACHE_MODE}"
+  printf '%s.%s.%s.%s\n' "$release" "$system" "$(cache_mode_rank "$mode")" "$mode"
 }
 
 deb_package_version() {
   local release="$1"
   local system="$2"
-  printf '%s-%s\n' "$PACKAGE_VERSION" "$(deb_full_release "$release" "$system")"
+  local mode="${3:-$DEFAULT_CACHE_MODE}"
+  printf '%s-%s\n' "$PACKAGE_VERSION" "$(deb_full_release "$release" "$system" "$mode")"
 }
 
 deb_name_for_arch() {
@@ -160,7 +162,7 @@ deb_name_for_arch() {
   local mode="${4:-$DEFAULT_CACHE_MODE}"
   local package_name
   package_name=$(package_name_for_cache_mode "$mode")
-  printf '%s_%s_%s.deb\n' "$package_name" "$(deb_package_version "$release" "$system")" "$arch"
+  printf '%s_%s_%s.deb\n' "$package_name" "$(deb_package_version "$release" "$system" "$mode")" "$arch"
 }
 
 find_staged_config_dir() {
