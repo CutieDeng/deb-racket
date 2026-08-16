@@ -55,7 +55,7 @@ scripts/build-deb.sh \
   --artifact-dir /path/to/artifacts \
   --work-dir /path/to/work \
   --deb-system ubuntu2404 \
-  --deb-release 3 \
+  --deb-release 1 \
   --deb-arch amd64 \
   --cache-mode cached \
   --prefix /usr
@@ -65,29 +65,29 @@ Use a local source archive for offline or pinned local builds:
 
 ```sh
 scripts/build-deb.sh \
-  --source-archive /path/to/racket-minimal-9.2.5-src.tgz \
+  --source-archive /path/to/racket-minimal-9.3.1-src.tgz \
   --artifact-dir /path/to/artifacts \
   --work-dir /path/to/work \
   --deb-system ubuntu2404 \
-  --deb-release 3 \
+  --deb-release 1 \
   --deb-arch amd64 \
   --cache-mode postinstall \
   --prefix /usr
 ```
 
 Supported Debian-family systems are `debian12`, `ubuntu2204`, and `ubuntu2404`. The package
-revision is generated as `deb-release.deb-system.cache-rank.cache-mode`, so `3`
-and `ubuntu2404` produce version `9.2.5-3.ubuntu2404.2.cached`
-for the default cached mode and `9.2.5-3.ubuntu2404.1.postinstall`
+revision is generated as `deb-release.deb-system.cache-rank.cache-mode`, so `1`
+and `ubuntu2404` produce version `9.3.1-1.ubuntu2404.2.cached`
+for the default cached mode and `9.3.1-1.ubuntu2404.1.postinstall`
 for the postinstall mode.
 
 Validate an existing `.deb`:
 
 ```sh
 scripts/verify-deb.sh \
-  --deb /path/to/artifacts/racket9_9.2.5-3.ubuntu2404.2.cached_amd64.deb \
+  --deb /path/to/artifacts/racket9_9.3.1-1.ubuntu2404.2.cached_amd64.deb \
   --deb-system ubuntu2404 \
-  --deb-release 3 \
+  --deb-release 1 \
   --deb-arch amd64 \
   --cache-mode cached
 ```
