@@ -22,7 +22,7 @@ jobs:
         include:
           - id: 'debian12-amd64-cached'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -33,7 +33,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-amd64-postinstall'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -44,7 +44,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-amd64-cached'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -55,7 +55,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-amd64-postinstall'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -66,7 +66,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2204-amd64-cached'
             deb_system: 'ubuntu2204'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -77,7 +77,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2204-amd64-postinstall'
             deb_system: 'ubuntu2204'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'amd64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -88,7 +88,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev libssl-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-arm64-cached'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -99,7 +99,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'debian12-arm64-postinstall'
             deb_system: 'debian12'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -110,7 +110,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-arm64-cached'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -121,7 +121,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2404-arm64-postinstall'
             deb_system: 'ubuntu2404'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -132,7 +132,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2204-arm64-cached'
             deb_system: 'ubuntu2204'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'cached'
             package_name: 'racket9'
@@ -143,7 +143,7 @@ jobs:
             setup_packages: 'build-essential ca-certificates coreutils curl dpkg-dev file findutils gcc grep gzip libedit-dev libffi-dev libsqlite3-dev make sed tar xz-utils zlib1g-dev'
           - id: 'ubuntu2204-arm64-postinstall'
             deb_system: 'ubuntu2204'
-            deb_release: '3'
+            deb_release: '1'
             deb_arch: 'arm64'
             cache_mode: 'postinstall'
             package_name: 'racket9'
@@ -202,7 +202,7 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
           PACKAGE_NAME: ${{ matrix.package_name }}
-          PACKAGE_VERSION: '9.2.5'
+          PACKAGE_VERSION: '9.3.1'
         run: |
           set -euo pipefail
           smoke_step() { printf 'DEB smoke: %s\n' "$1"; }
@@ -288,11 +288,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: 'v9.2.5'
-          RELEASE_NAME: 'Racket 9.2.5 DEB packages'
+          RELEASE_TAG: 'v9.3.1'
+          RELEASE_NAME: 'Racket 9.3.1 DEB packages'
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
-          PACKAGE_VERSION: '9.2.5'
+          PACKAGE_VERSION: '9.3.1'
           EXPECTED_DEB_COUNT: 12
         run: |
           set -euo pipefail
