@@ -16,7 +16,7 @@ DEFAULT_PREFIX='/usr'
 DEFAULT_CACHE_MODE=cached
 SOURCE_ARCHIVE_NAME='racket-minimal-9.3.1-src.tgz'
 DEFAULT_SOURCE_URL='https://github.com/CutieDeng/racket/releases/download/v9.3.1/racket-minimal-9.3.1-src.tgz'
-SOURCE_SHA256='2de98df196ba648fc8ae560e720cb2c01058ecfdd2c48746e6373d122f9a2e6f'
+SOURCE_SHA256='82c5ea4c2e406b14b69ff7255ee34358f4abb0c1eee635e256562a0ca816f85d'
 PACKAGE_SUMMARY='Racket programming language'
 PACKAGE_MAINTAINER='Cutie Deng <cutiedeng@users.noreply.github.com>'
 PACKAGE_HOMEPAGE='https://racket-lang.org/'
@@ -229,35 +229,6 @@ require_staged_cache_deps_runtime_keyed() {
   fi
 }
 
-require_staged_rhombus_cache_root() {
-  local demod_cache_root="$1"
-  local cache_kind="$2"
-  local prefix="$3"
-  local runtime_collects_dir="$prefix/share/racket/collects"
-  local runtime_pkgs_dir="$prefix/share/racket/pkgs"
-  local runtime_collects_cache="$demod_cache_root/${runtime_collects_dir#/}"
-  local runtime_pkgs_cache="$demod_cache_root/${runtime_pkgs_dir#/}"
-  if ! find "$runtime_collects_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
-    die "runtime-keyed staged Rhombus demod $cache_kind collects cache is empty: $runtime_collects_cache"
-  fi
-  if ! find "$runtime_pkgs_cache" -path '*/compiled/*.zo' -type f -print -quit 2>/dev/null | grep -q .; then
-    die "runtime-keyed staged Rhombus demod $cache_kind package cache is empty: $runtime_pkgs_cache"
-  fi
-}
-
-require_staged_rhombus_cache() {
-  local stage_root="$1"
-  local prefix="$2"
-  local rhombus_ephemeral_cache="$stage_root$prefix/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
-  local stage_key="${stage_root#/}"
-  require_staged_rhombus_cache_root "$rhombus_ephemeral_cache/linklet" linklet "$prefix"
-  require_staged_rhombus_cache_root "$rhombus_ephemeral_cache/native" native "$prefix"
-  if [ -n "$stage_key" ] && (cd "$rhombus_ephemeral_cache" && find . -path "*/$stage_key/*" -print -quit 2>/dev/null | grep -q .); then
-    die "staged Rhombus demod cache contains buildroot-keyed paths: $stage_key"
-  fi
-  require_staged_cache_deps_runtime_keyed "$rhombus_ephemeral_cache" "$stage_root"
-}
-
 escape_config_sed_pattern() {
   printf '%s\n' "$1" | sed 's/[][\\.^$*|]/\\&/g'
 }
@@ -374,87 +345,6 @@ normalize_staged_system_cache() {
   find "$cache_root" -type d -empty -delete 2>/dev/null || true
 }
 
-normalize_staged_rhombus_cache() {
-  local stage_root="$1"
-  local prefix="$2"
-  local demod_root="$stage_root$prefix/share/racket/pkgs/rhombus-lib/rhombus/private/compiled/ephemeral/demod"
-  local demod_cache_root
-  [ -d "$demod_root" ] || return 0
-  for demod_cache_root in "$demod_root"/*; do
-    [ -d "$demod_cache_root" ] || continue
-    move_staged_cache_tree "$demod_cache_root" "$stage_root$prefix/share/racket/collects" "$prefix/share/racket/collects"
-    move_staged_cache_tree "$demod_cache_root" "$stage_root$prefix/share/racket/pkgs" "$prefix/share/racket/pkgs"
-    find "$demod_cache_root" -type d -empty -delete 2>/dev/null || true
-  done
-  rewrite_staged_cache_dep_paths "$demod_root" "$stage_root" "$prefix"
-  find "$demod_root" -type d -empty -delete 2>/dev/null || true
-}
-
-warm_staged_rhombus_cache() {
-  local stage_root="$1"
-  local prefix="$2"
-  local config_dir="$3"
-  local racket_bin="$4"
-  local runtime_config_dir="/etc/racket"
-  local runtime_cache_parent="/var/cache/racket"
-  local runtime_cache_root="$runtime_cache_parent/compiled"
-  local staged_cache_parent="$stage_root$runtime_cache_parent"
-  local runtime_share_dir="$prefix/share/racket"
-  local runtime_collects_dir="$runtime_share_dir/collects"
-  local runtime_lib_dir="$prefix/lib/racket"
-  local runtime_bin_dir="$prefix/bin"
-  local runtime_racket_bin="$runtime_bin_dir/racket"
-  local runtime_rhombus_bin="$runtime_bin_dir/rhombus"
-  local staged_rhombus_bin="$stage_root$runtime_bin_dir/rhombus"
-  local runtime_links=
-  local empty_home=
-  cleanup_runtime_links() {
-    if [ -n "${runtime_links:-}" ]; then
-      printf '%s\n' "$runtime_links" | while IFS= read -r runtime_link; do
-        [ -n "$runtime_link" ] || continue
-        [ -L "$runtime_link" ] && rm -f "$runtime_link"
-      done
-    fi
-  }
-  cleanup_warmup() {
-    cleanup_runtime_links
-    [ -n "${empty_home:-}" ] && rm -rf "$empty_home"
-  }
-  add_runtime_link() {
-    local runtime_link_target="$1"
-    local runtime_link_path="$2"
-    if [ -e "$runtime_link_path" ] || [ -L "$runtime_link_path" ]; then
-      die "runtime staging link path already exists: $runtime_link_path"
-    fi
-    mkdir -p "$(dirname "$runtime_link_path")"
-    ln -s "$runtime_link_target" "$runtime_link_path"
-    runtime_links="$runtime_link_path
-$runtime_links"
-  }
-  mkdir -p "$staged_cache_parent"
-  [ -x "$staged_rhombus_bin" ] || die "missing staged Rhombus launcher: $staged_rhombus_bin"
-  empty_home=$(mktemp -d)
-  trap cleanup_warmup EXIT
-  add_runtime_link "$stage_root$runtime_share_dir" "$runtime_share_dir"
-  add_runtime_link "$stage_root$runtime_lib_dir" "$runtime_lib_dir"
-  add_runtime_link "$config_dir" "$runtime_config_dir"
-  add_runtime_link "$staged_cache_parent" "$runtime_cache_parent"
-  add_runtime_link "$racket_bin" "$runtime_racket_bin"
-  add_runtime_link "$staged_rhombus_bin" "$runtime_rhombus_bin"
-  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$runtime_cache_root" "$runtime_rhombus_bin" --version >/dev/null; then
-    cleanup_warmup
-    trap - EXIT
-    return 1
-  fi
-  if ! HOME="$empty_home" PLTCOMPILEDROOTS="$runtime_cache_root" "$runtime_rhombus_bin" -e 'println("package-racket-rhombus-cache")' >/dev/null; then
-    cleanup_warmup
-    trap - EXIT
-    return 1
-  fi
-  cleanup_warmup
-  trap - EXIT
-}
-
 build_staged_system_cache() {
   local stage_root="$1"
   local prefix="$2"
@@ -476,13 +366,8 @@ build_staged_system_cache() {
   fi
   cp "$backup" "$config_file"
   rm -f "$backup"
-  if ! warm_staged_rhombus_cache "$stage_root" "$prefix" "$config_dir" "$racket_bin"; then
-    return 1
-  fi
   normalize_staged_system_cache "$stage_root" "$prefix"
-  normalize_staged_rhombus_cache "$stage_root" "$prefix"
   require_staged_system_cache "$stage_root" "$prefix"
-  require_staged_rhombus_cache "$stage_root" "$prefix"
 }
 
 reset_output_dir() {
