@@ -7,16 +7,16 @@ set -euo pipefail
 BASE_PACKAGE_NAME='racket9'
 LEGACY_CACHED_PACKAGE_NAME='racket9-cached'
 PACKAGE_NAME="$BASE_PACKAGE_NAME"
-PACKAGE_VERSION='9.3.4'
-PACKAGE_SOURCE_VERSION='9.3.4'
+PACKAGE_VERSION='9.3.5'
+PACKAGE_SOURCE_VERSION='9.3.5'
 DEFAULT_DEB_SYSTEM='ubuntu2404'
 DEFAULT_DEB_RELEASE='1'
 DEFAULT_DEB_ARCH='amd64'
 DEFAULT_PREFIX='/usr'
 DEFAULT_CACHE_MODE=cached
-SOURCE_ARCHIVE_NAME='racket-minimal-9.3.4-src.tgz'
-DEFAULT_SOURCE_URL='https://github.com/CutieDeng/racket/releases/download/v9.3.4/racket-minimal-9.3.4-src.tgz'
-SOURCE_SHA256='00a2ea2044c6f28322ce94a8e1952c70828cdc1791ac345cbc6c5df3f6480fd4'
+SOURCE_ARCHIVE_NAME='racket-minimal-9.3.5-src.tgz'
+DEFAULT_SOURCE_URL='https://github.com/CutieDeng/racket/releases/download/v9.3.5/racket-minimal-9.3.5-src.tgz'
+SOURCE_SHA256='dac88d1a7f1c104de93b31f385bdebe21c43cfbd9f3ca03c0d68050fae6e6663'
 PACKAGE_SUMMARY='Racket programming language'
 PACKAGE_MAINTAINER='Cutie Deng <cutiedeng@users.noreply.github.com>'
 PACKAGE_HOMEPAGE='https://racket-lang.org/'
@@ -265,7 +265,8 @@ write_staged_config() {
   local prefix="$3"
   local runtime_cache_root="$4"
   local staged_cache_root="$5"
-  replace_config_value "$config_file" compiled-file-system-cache-root "$runtime_cache_root" "$staged_cache_root" required
+  # compiled-file-system-cache-root stays at its runtime value: the setup
+  # invocation overrides it with --compiled-cache-root (racket >= 9.3.5)
   replace_config_value "$config_file" share-dir "$prefix/share/racket" "$stage_root$prefix/share/racket"
   replace_config_value "$config_file" pkgs-dir "$prefix/share/racket/pkgs" "$stage_root$prefix/share/racket/pkgs"
   replace_config_value "$config_file" doc-dir "$prefix/share/doc/racket" "$stage_root$prefix/share/doc/racket"
@@ -359,7 +360,18 @@ build_staged_system_cache() {
   cp "$config_file" "$backup"
   write_staged_config "$config_file" "$stage_root" "$prefix" "$runtime_cache_root" "$staged_cache_root"
   mkdir -p "$staged_cache_root"
-  if ! "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --reset-cache -D --no-pkg-deps --no-launcher; then
+  # Two passes: on a zo-stripped stage the first setup bootstraps from
+  # source and its dep bookkeeping does not self-validate; the second pass
+  # converges the cache so an installed system's later raco setup no-ops.
+  # PLTCOMPILEDROOTS puts the staged cache first on the LOAD side too (the
+  # trailing colon appends the default roots), so the converge pass boots
+  # setup from the pass-1 cache instead of re-bootstrapping from source.
+  if ! PLTCOMPILEDROOTS="$staged_cache_root:" "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --compiled-cache-root "$staged_cache_root" --reset-cache -D --no-pkg-deps --no-launcher; then
+    cp "$backup" "$config_file"
+    rm -f "$backup"
+    return 1
+  fi
+  if ! PLTCOMPILEDROOTS="$staged_cache_root:" "$racket_bin" -X "$collects_dir" -G "$config_dir" -N raco -l- raco setup --system --no-user --compiled-cache-root "$staged_cache_root" -D --no-pkg-deps --no-launcher; then
     cp "$backup" "$config_file"
     rm -f "$backup"
     return 1

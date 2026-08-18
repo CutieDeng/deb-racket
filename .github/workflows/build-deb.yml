@@ -202,7 +202,7 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
           PACKAGE_NAME: ${{ matrix.package_name }}
-          PACKAGE_VERSION: '9.3.4'
+          PACKAGE_VERSION: '9.3.5'
         run: |
           set -euo pipefail
           smoke_step() { printf 'DEB smoke: %s\n' "$1"; }
@@ -276,11 +276,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: 'v9.3.4'
-          RELEASE_NAME: 'Racket 9.3.4 DEB packages'
+          RELEASE_TAG: 'v9.3.5'
+          RELEASE_NAME: 'Racket 9.3.5 DEB packages'
           CREATE_RELEASE: 'true'
           PACKAGE_NAME: 'racket9'
-          PACKAGE_VERSION: '9.3.4'
+          PACKAGE_VERSION: '9.3.5'
           EXPECTED_DEB_COUNT: 12
         run: |
           set -euo pipefail
